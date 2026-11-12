@@ -22,6 +22,7 @@ cd <pkl_qc folder>
 - Long runs: `nohup ./run_pkl_qc.sh all --config configs/gebco.json --out results_gebco -j 8 > gebco.out 2>&1 &`, or use `tmux`.
 - An interrupted scan resumes where it stopped: runs already in the cache are not re-read.
 - Python: `PKL_QC_PYTHON=/path/to/python ./run_pkl_qc.sh ...`. By default the wrapper uses the Leonardo venv `/leonardo_work/DTGEO_T1_2/forGEM_pygthm_naveen/venv/bin/python3.11` if it exists, else `python3`. It needs numpy, pandas and matplotlib ([requirements.txt](requirements.txt)).
+- Spack instead of a venv: use `./run_pkl_qc_spack.sh` with the same arguments. It loads Spack (`module load spack`, or `$SPACK_ROOT/share/spack/setup-env.sh`), activates the environment given by `PKL_QC_SPACK_ENV=/path/to/env` (or `SPACK_ENV_DEFAULT` in the script), and checks that its `python3` has numpy, pandas and matplotlib.
 - Temporary/cache files stay inside the project (`.cache/`) and the output folder; nothing is written to `/tmp`.
 
 Login-node limits (Leonardo: 600 s CPU time and 1 GB memory per process):

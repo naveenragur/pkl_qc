@@ -5,7 +5,7 @@
 #   ./run_pkl_qc.sh plot     --config configs/gebco.json --out results_gebco --zones sunda2
 # PKL_QC_PYTHON selects the interpreter (default: Leonardo venv if present, else python3).
 cd "$(dirname "$(readlink -f "$0")")" || exit 1
-LEONARDO_PY=/leonardo_work/DTGEO_T1_2/forGEM_pygthm_naveen/venv/bin/python3.11
+LEONARDO_PY=/leonardo/home/userexternal/nraguram/venv_leonardo_py311/bin/python3.11
 if [ -n "${PKL_QC_PYTHON:-}" ]; then PY=$PKL_QC_PYTHON
 elif [ -x "$LEONARDO_PY" ]; then PY=$LEONARDO_PY
 else PY=python3; fi
