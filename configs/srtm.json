@@ -1,0 +1,6 @@
+{
+  "root": "/leonardo_work/DTGEO_T1_2/ChEESE2_subductions_GF2",
+  "zone_glob": "GF2_SRTM_*",
+  "gf2_subdir": "*/GF2",
+  "poi_file": "POI_lon_lat_ID_depth_SRTM.txt"
+}

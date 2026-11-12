@@ -1,0 +1,9 @@
+{
+  "root": "/path/to/subduction_runs",
+  "zone_glob": "GF2_*",
+  "gf2_subdir": "*/GF2",
+  "run_glob": "slip_taper_geo_*_hysea",
+  "pkl_name": "out_ts_new_th.pkl",
+  "poi_file": "POI_lon_lat_ID_depth_GEBCO.txt",
+  "nt_expected": 17281
+}

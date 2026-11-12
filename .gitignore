@@ -1,0 +1,7 @@
+# outputs and caches (never commit results)
+results*/
+.cache/
+__pycache__/
+*.pyc
+*.out
+*.log
