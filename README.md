@@ -29,6 +29,15 @@ Login-node limits (Leonardo: 600 s CPU time and 1 GB memory per process):
 - Each pkl, zone evaluation and figure runs in its own fresh process, so the limits apply per task. If a worker is killed, the task is recorded as failed (`SCAN_ERROR` / `plot FAILED`) instead of hanging; re-run the command to retry it.
 - The largest pkl (about 1.7 GB, 22k POIs) takes about 20 s. Keep `-j` at 8 or below on a login node.
 
+### Time series of specific POIs
+
+Run diagnostic figure with your own POIs in the time-series row (up to 6, marked A, B, C... on the map), together with the nearest neighbour run:
+
+```bash
+./run_pkl_qc.sh plot --config configs/gebco.json --out results_gebco --zones southamerica --runs 502 --poi 2566 2569 2567 -j 1
+# -> results_gebco/GEBCO_southamerica/diag/run_0502_poi2566_2569_2567.png
+```
+
 ## New machine or new dataset
 
 1. Copy the whole `pkl_qc` folder (the `results*` and `.cache` folders are not needed).

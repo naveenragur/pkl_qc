@@ -81,7 +81,8 @@ def _info_text(rec, row, m, keep, cfg):
     return L, counts
 
 
-def plot_run(zone, run, out, cfg, pois, row=None, with_ts=True):
+def plot_run(zone, run, out, cfg, pois, row=None, with_ts=True, sel_pois=None):
+    """Run diagnostic figure. sel_pois: POI ids (1-based) for the time-series row instead of the automatic choice."""
     zdir = os.path.join(out, zone)
     rec, a = scan.load_cached(scan.cache_path(out, zone, run))
     if a is None:
@@ -98,12 +99,12 @@ def plot_run(zone, run, out, cfg, pois, row=None, with_ts=True):
     reasons = str(_g(row, "reasons", "") or "")
     with plt.rc_context(RC):
         f = _plot_run(zone, run, rec, a, m, excl, keep, dist, pm, plon, plat, status, reasons, out, cfg, pois, row,
-                      with_ts, zdir)
+                      with_ts, zdir, sel_pois)
     return f
 
 
 def _plot_run(zone, run, rec, a, m, excl, keep, dist, pm, plon, plat, status, reasons, out, cfg, pois, row,
-              with_ts, zdir):
+              with_ts, zdir, sel_pois=None):
     import textwrap
     nrow = 3 if with_ts else 2
     fig = plt.figure(figsize=(22, 17 if with_ts else 12), layout="constrained")
@@ -235,10 +236,11 @@ def _plot_run(zone, run, rec, a, m, excl, keep, dist, pm, plon, plat, status, re
     E.grid(alpha=0.25, lw=0.5)
 
     if with_ts:
-        _ts_row(fig, gs, zone, run, rec, a, m, keep, dist, out, cfg, pois, row, map_ax=A)
+        _ts_row(fig, gs, zone, run, rec, a, m, keep, dist, out, cfg, pois, row, map_ax=A, sel_pois=sel_pois)
     dd = os.path.join(zdir, "diag")
     os.makedirs(dd, exist_ok=True)
-    fpath = os.path.join(dd, f"run_{run:04d}.png")
+    sfx = ("_poi" + "_".join(str(p) for p in sel_pois)) if sel_pois else ""
+    fpath = os.path.join(dd, f"run_{run:04d}{sfx}.png")
     fig.savefig(fpath, dpi=90)
     plt.close(fig)
     return fpath
@@ -262,12 +264,20 @@ def _neighbour(zone, row, out):
     return None
 
 
-def _ts_row(fig, gs, zone, run, rec, a, m, keep, dist, out, cfg, pois, row, map_ax=None):
-    """Bottom row: flagged POIs, the POI deviating most from the nearest neighbour, one normal POI;
-    nearest neighbour run overlaid at the same POI."""
+MAX_SEL = 6
+LETTERS = "ABCDEF"
+LABEL_OFF = [(-40, 30), (40, 30), (40, -35), (-40, -35), (0, 45), (0, -48)]   # separate directions for close POIs
+
+
+def _ts_row(fig, gs, zone, run, rec, a, m, keep, dist, out, cfg, pois, row, map_ax=None, sel_pois=None):
+    """Bottom row: flagged POIs, the POI deviating most from the nearest neighbour, one normal POI
+    (or the user-selected POIs); nearest neighbour run overlaid at the same POI."""
     pm = a["pmax"]
     nb = _neighbour(zone, row, out)
     show = []
+    if sel_pois:
+        show = [(int(p) - 1, "selected POI") for p in sel_pois[:MAX_SEL] if 1 <= int(p) <= pm.size]
+        keep = np.zeros_like(keep)                   # skip the automatic choice below
     bad = keep & ((m & ~np.uint16(FLAGS["CONST"])) > 0)
     if bad.any():
         score = np.where(bad, np.nan_to_num(a["jump2"]) + np.nan_to_num(np.abs(pm)), -np.inf)
@@ -302,14 +312,21 @@ def _ts_row(fig, gs, zone, run, rec, a, m, keep, dist, out, cfg, pois, row, map_
                 dn = pickle.load(fh)
         except Exception:
             dn = None
-    slots = gs[2, :].subgridspec(1, 3)
-    for k, (j, why) in enumerate(show[:3]):
+    nslot = max(3, len(show))
+    slots = gs[2, :].subgridspec(1, nslot)
+    for k, (j, why) in enumerate(show[:nslot]):
         X = fig.add_subplot(slots[0, k])
-        t, x = _series(d, j + 1)
-        few = x.size < 200
-        X.plot(t, x, "k.-" if few else "k-", lw=0.8, ms=8 if x.size < 5 else 3,
-               label=f"run {run}: max {np.nanmax(x):.3g} m" + (f" ({x.size} samples)" if few else ""), zorder=3)
+        t = x = None
+        if (j + 1) in d:
+            t, x = _series(d, j + 1)
+            few = x.size < 200
+            X.plot(t, x, "k.-" if few else "k-", lw=0.8, ms=8 if x.size < 5 else 3,
+                   label=f"run {run}: max {np.nanmax(x):.3g} m" + (f" ({x.size} samples)" if few else ""), zorder=3)
+        else:
+            why += f"\nnot stored in run {run} (below storage threshold)"
         tn = xn = None
+        if dn is not None and (j + 1) not in dn:
+            why += f"\nnot stored in nb run {nb[0]}"
         if dn is not None and (j + 1) in dn:
             tn, xn = _series(dn, j + 1)
             X.plot(tn, xn, c="tab:orange", lw=1.0, alpha=0.9, label=f"nb run {nb[0]}: max {np.nanmax(xn):.3g} m", zorder=2)
@@ -321,11 +338,11 @@ def _ts_row(fig, gs, zone, run, rec, a, m, keep, dist, out, cfg, pois, row, map_
               ylabel="eta [m]")
         X.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=14, steps=[1, 2, 2.5, 5, 10]))
         X.xaxis.set_minor_locator(matplotlib.ticker.AutoMinorLocator())
-        letter = "ABC"[k]
+        letter = LETTERS[k]
         if map_ax is not None:                      # mark the plotted POI on the map with the same letter
             map_ax.scatter(pois["lon"][j], pois["lat"][j], s=170, marker="o", facecolors="none",
                            edgecolors="k", linewidths=2.2, zorder=7)
-            off = {"A": (-40, 30), "B": (40, 30), "C": (40, -35)}[letter]   # separate directions for close POIs
+            off = LABEL_OFF[k]
             map_ax.annotate(letter, (pois["lon"][j], pois["lat"][j]), xytext=off, textcoords="offset points",
                             fontsize=15, fontweight="bold", color="k", zorder=8, ha="center", va="center",
                             bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="k", lw=1.2, alpha=0.95),

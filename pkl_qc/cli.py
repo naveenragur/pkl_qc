@@ -39,7 +39,12 @@ def main(argv=None):
     ap.add_argument("--status", nargs="*", default=["RERUN", "REVIEW"], help="statuses to plot")
     ap.add_argument("--max-plots", type=int, default=30, help="max run figures per zone")
     ap.add_argument("--no-ts", action="store_true", help="plots without time series (no pkl read)")
+    ap.add_argument("--poi", type=int, nargs="+", default=None,
+                    help="plot: POI ids (1-based, up to 6) for the time-series row, marked A, B, C... on the map; "
+                         "output run_NNNN_poi<ids>.png (use with --runs)")
     a = ap.parse_args(argv)
+    if a.poi and len(a.poi) > plots.MAX_SEL:
+        ap.error(f"--poi: at most {plots.MAX_SEL} POIs")
 
     cfg = config.load_config(a.config, root=a.root, zone_glob=a.zone_glob)
     os.makedirs(a.out, exist_ok=True)
@@ -74,10 +79,12 @@ def main(argv=None):
             f = os.path.join(a.out, z, "qc_runs.csv")
             if not os.path.exists(f):
                 continue
-            log(f"[{z}] zone plot {plots.plot_zone(z, a.out, pois)}")
+            if not a.poi:
+                log(f"[{z}] zone plot {plots.plot_zone(z, a.out, pois)}")
             q = pd.read_csv(f).set_index("run", drop=False)
             sel = q[q.status.isin(a.status)] if not a.runs else q[q.run.isin(a.runs)]
-            jobs += [(z, row.to_dict(), a.out, cfg, pois, not a.no_ts) for _, row in sel.head(a.max_plots).iterrows()]
+            jobs += [(z, row.to_dict(), a.out, cfg, pois, not a.no_ts, a.poi)
+                     for _, row in sel.head(a.max_plots).iterrows()]
         if jobs:
             # one figure per fresh process (pkl read for time series; CPU limit on login nodes)
             for msg in run_tasks(_plot_run, jobs, a.j,
@@ -86,9 +93,9 @@ def main(argv=None):
 
 
 def _plot_run(args):
-    z, row, out, cfg, pois, with_ts = args
+    z, row, out, cfg, pois, with_ts, sel_pois = args
     try:
-        return f"[{z}] run {int(row['run'])} -> {plots.plot_run(z, int(row['run']), out, cfg, pois, row, with_ts)}"
+        return f"[{z}] run {int(row['run'])} -> {plots.plot_run(z, int(row['run']), out, cfg, pois, row, with_ts, sel_pois)}"
     except Exception as e:
         return f"[{z}] run {int(row['run'])} plot failed: {e!r}"
 
